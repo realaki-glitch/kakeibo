@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#1f3a5f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="家計簿">
+<title>家計の状況</title>
+<style>
+:root{--bg:#f3f4f1;--paper:#fff;--ink:#1d2430;--sub:#5b6573;--line:#c9cec8;--accent:#1f3a5f;--on:#fff;--head:#e8ecf2;--pos:#1f6b3a;--neg:#b3261e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#14181e;--paper:#1c222b;--ink:#e7eaee;--sub:#9aa4b1;--line:#3a4350;--accent:#8fb3e6;--on:#14181e;--head:#252d38;--pos:#6fcf8f;--neg:#ff8a80}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding:20px 14px 48px}
+h1{font-size:1.5rem;text-align:center;letter-spacing:.3em;margin:8px 0 4px}
+.lead{text-align:center;color:var(--sub);font-size:.85rem;margin:0 0 18px}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--accent);overflow-x:auto}
+.tab.addm{flex:0 0 auto;min-width:64px;background:transparent;color:var(--accent);border-style:dashed}
+.tab{flex:1 0 auto;min-width:76px;font:inherit;padding:10px 4px;background:var(--head);color:var(--sub);border:1px solid var(--line);border-bottom:0;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--accent);color:var(--on);font-weight:700;border-color:var(--accent)}
+:focus-visible{outline:3px solid #e0a100;outline-offset:1px}
+.sheet{background:var(--paper);border:1px solid var(--line);border-top:0;padding:16px}
+.period{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:.9rem}
+input,textarea{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:3px}
+.period input{padding:4px 6px}
+table{width:100%;border-collapse:collapse;margin-bottom:6px}
+caption{text-align:left;font-weight:700;padding:6px 8px;background:var(--head);border:1px solid var(--line);border-bottom:0}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;font-weight:400}
+th{width:55%}
+th .lb{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.nm{flex:1;min-width:0;padding:4px 6px;border:1px solid transparent;background:transparent}
+.nm:hover,.nm:focus{border-color:var(--line);background:var(--paper)}
+td{text-align:right}
+td .yen{display:flex;align-items:center;gap:4px}
+td input{flex:1;min-width:0;width:100%;text-align:right;padding:6px}
+tfoot th,tfoot td{background:var(--head);font-weight:700}
+.del{font:inherit;line-height:1;padding:2px 7px;border:1px solid var(--line);background:transparent;color:var(--neg);cursor:pointer;border-radius:3px}
+.add{display:flex;gap:6px;margin:0 0 16px}
+.add input{flex:1;min-width:0;padding:6px 8px}
+.btn{font:inherit;padding:8px 16px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;border-radius:3px;white-space:nowrap}
+.btn.main{background:var(--accent);color:var(--on)}
+.balance{border:2px solid var(--accent);padding:12px 14px;display:flex;justify-content:space-between;align-items:baseline;font-weight:700;font-size:1.1rem}
+.balance output{font-size:1.5rem;font-variant-numeric:tabular-nums}
+.pos{color:var(--pos)}.neg{color:var(--neg)}
+.actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.actions .btn{padding:10px 22px}
+#msg{align-self:center;color:var(--sub);font-size:.85rem}
+.total{margin-top:16px;border:1px solid var(--line);background:var(--paper);padding:10px 14px;font-size:.9rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+details{margin-top:16px;border:1px solid var(--line);background:var(--paper);padding:10px 14px}
+summary{cursor:pointer;font-weight:700}
+details p{font-size:.82rem;color:var(--sub);margin:8px 0}
+details .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+textarea{width:100%;min-height:140px;padding:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem}
+.note{color:var(--sub);font-size:.78rem;margin-top:14px}
+.cal{margin-top:16px;background:var(--paper);border:1px solid var(--line);padding:16px}
+.cal h2{font-size:1.05rem;margin:0 0 10px}
+.cal h3{font-size:.95rem;margin:0 0 8px}
+.dow,.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.dow span{text-align:center;font-size:.8rem;color:var(--sub)}
+.day{min-height:50px;font:inherit;font-size:.78rem;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:flex-end;padding:3px 4px;border-radius:3px;overflow:hidden}
+.day.sel{outline:2px solid var(--accent);background:var(--head)}
+.day span{font-size:.65rem;font-variant-numeric:tabular-nums}
+.dp{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.dp ul{list-style:none;padding:0;margin:0 0 10px}
+.dp li{display:flex;justify-content:space-between;align-items:center;gap:6px;border-bottom:1px dotted var(--line);padding:4px 0;font-size:.9rem}
+.frm{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.frm select,.frm input{padding:6px 8px;min-width:0;font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:3px}
+.frm .full{grid-column:1/-1}
+.rc{margin-top:10px;font-size:.88rem}
+.hint{color:var(--sub);font-size:.8rem;margin:6px 0}
+.dly{display:block;font-size:.7rem;color:var(--sub);text-align:right}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.segs{display:flex;border:1px solid var(--accent);border-radius:3px;overflow:hidden}
+.seg{font:inherit;font-size:.85rem;padding:6px 12px;border:0;background:transparent;color:var(--accent);cursor:pointer}
+.seg.on{background:var(--accent);color:var(--on)}
+.ch svg{width:100%;height:auto;display:block}
+.ch text{fill:var(--ink);font-size:12px}
+.pie{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.pie svg{width:220px;flex:0 0 auto}
+.lg{list-style:none;padding:0;margin:8px 0 0;flex:1;min-width:210px;font-size:.88rem}
+.lg li{display:flex;align-items:center;gap:8px;padding:2px 0}
+.lg b{margin-left:auto;font-weight:400;font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.82rem;margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.lg i,.legend i{width:12px;height:12px;border-radius:2px;flex:0 0 auto}
+@media print{.ctl{display:none}}
+@media print{.frm,.rc,.cal .hint{display:none}}
+@media (max-width:520px){th{width:48%;font-size:.9rem}.balance output{font-size:1.25rem}}
+@media print{.tabs,.actions,.note,.add,.del,details{display:none}body{background:#fff}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>家計の状況</h1>
+<p class="lead">月ごとの収入と支出を入力してください（単位：円）。「＋ 追加」で月を増やせ、項目名は直接書き換えられます</p>
+<div class="tabs" role="tablist" id="tabs"></div>
+<section class="sheet" id="sheet" role="tabpanel"></section>
+<section class="cal" id="cal" aria-label="日々の記録"></section>
+<section class="cal" id="chart" aria-label="グラフ"></section>
+<div class="total" id="total"></div>
+<div class="actions">
+<button class="btn main" id="save">保存</button>
+<button class="btn" id="reset">リセット</button>
+<span id="msg" role="status"></span>
+</div>
+<details>
+<summary>CSVのインポート／エクスポート</summary>
+<p>Excelなどで作ったCSVを読み込めます。1行目は「区分,項目,1ヶ月目,2ヶ月目,3ヶ月目,…」（列を増やすと月が自動で追加されます）、区分には「収入」または「支出」を入れます。「対象月」の行（例：対象月,,2026-08,2026-09,2026-10）も使えます。まず「CSVを書き出す」で見本を出し、編集して貼り付けるのが簡単です。</p>
+<div class="row">
+<input type="file" id="file" accept=".csv,.tsv,.txt" aria-label="CSVファイルを選択">
+<button class="btn" id="exp">CSVを書き出す</button>
+<button class="btn main" id="imp">取り込む</button>
+</div>
+<textarea id="io" spellcheck="false" aria-label="CSVの内容" placeholder="ここにCSVを貼り付けるか、ファイルを選択してください"></textarea>
+<p>取り込むと、同じ名前の項目の金額は上書きされ、見つからない項目は新しい項目として追加されます。文字コードはUTF-8とShift_JISに対応しています。</p>
+</details>
+<p class="note">入力内容はこのブラウザ内にのみ保存されます。実際の申立書の書式は裁判所により異なるため、提出前に管轄の裁判所の書式をご確認ください。</p>
+</div>
+<script>
+const INC=[["self","本人の給与"],["partner","同居人の給与"],["welfare","生活保護費"],["pension","年金・手当"],["otherIn","その他"]];
+const EXP=[["rent","家賃・住宅ローン"],["food","食費"],["elec","電気代"],["gas","ガス代"],["water","水道代"],["comm","通信費（携帯・ネット）"],["daily","日用品費"],["med","医療費"],["trans","交通費"],["ins","生命保険料"],["otherEx","その他の支出"]];
+const KEY="kakeibo-jokyo-v2",OLD="kakeibo-jokyo-v1",N=3,MAX=36,CAT={inc:"収入",exp:"支出"};
+const mk=l=>l.map(([id,l])=>({id,l}));
+const fresh=()=>({items:{inc:mk(INC),exp:mk(EXP)},months:Array.from({length:N},()=>({month:"",v:{}}))});
+let S=fresh(),cur=0;
+try{
+const s=localStorage.getItem(KEY),o=localStorage.getItem(OLD);
+if(s){const d=JSON.parse(s);if(d&&d.items&&Array.isArray(d.items.inc)&&Array.isArray(d.items.exp)&&Array.isArray(d.months)&&d.months.length>=1&&d.months.length<=MAX)S=d}
+else if(o){const d=JSON.parse(o);if(Array.isArray(d)&&d.length===N)S.months=d}
+}catch(e){}
+if(!Array.isArray(S.daily))S.daily=[];
+const $=id=>document.getElementById(id);
+const h=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const yen=n=>n.toLocaleString("ja-JP");
+const toNum=s=>parseInt(String(s).replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-65248)).replace(/[^0-9]/g,""))||0;
+const dsum=(m,id)=>{const mo=S.months[m].month;return mo?S.daily.filter(x=>x.item===id&&x.date.slice(0,7)===mo).reduce((a,x)=>a+x.amt,0):0};
+const val=(m,id)=>toNum(S.months[m].v[id])+dsum(m,id);
+const sum=(c,m)=>S.items[c].reduce((a,it)=>a+val(m,it.id),0);
+const fmt=b=>(b<0?"−":"")+yen(Math.abs(b))+" 円";
+const isCustom=it=>it.id[0]==="c"&&it.id.length>6;
+function table(c,p,title,foot,tid){
+const rows=S.items[c].map(it=>`<tr><th scope="row"><div class="lb"><input class="nm" data-nm="${c}" data-nid="${it.id}" value="${h(it.l)}" maxlength="30" aria-label="項目名（書き換えられます）"><button class="del" data-c="${c}" data-id="${it.id}" aria-label="${h(it.l)}を削除">×</button></div></th><td><div class="yen"><input id="${p}${it.id}" data-id="${it.id}" type="text" inputmode="numeric" autocomplete="off" value="${val(cur,it.id)||""}" placeholder="0"><span>円</span></div><small class="dly" data-dl="${it.id}"></small></td></tr>`).join("");
+return `<table><caption>${title}</caption><tbody>${rows}</tbody><tfoot><tr><th>${foot}</th><td id="${tid}"></td></tr></tfoot></table>
+<div class="add"><input id="n_${c}" maxlength="30" placeholder="${CAT[c]}の項目名を入力" aria-label="${CAT[c]}の項目名"><button class="btn" data-add="${c}">項目を追加</button></div>`}
+function render(){
+$("tabs").innerHTML=S.months.map((m,i)=>`<button class="tab" role="tab" aria-selected="${i===cur}" data-i="${i}">${i+1}ヶ月目</button>`).join("")+(S.months.length<MAX?`<button class="tab addm" data-addm="1" aria-label="月を追加">＋ 追加</button>`:"");
+$("sheet").innerHTML=`<div class="period"><label for="mo">対象月：</label><input id="mo" type="month" value="${h(S.months[cur].month||"")}">${S.months.length>1?`<button class="btn" id="delm" style="margin-left:auto;padding:4px 10px">この月を削除</button>`:""}</div>`+table("inc","i_","【収入】","収入合計","ti")+table("exp","e_","【支出】","支出合計","te")+`<div class="balance"><span>収支バランス（残金）</span><output id="bal"></output></div>`;
+calc();renderCal()}
+function calc(){
+const i=sum("inc",cur),e=sum("exp",cur),b=i-e;
+$("ti").textContent=yen(i)+" 円";$("te").textContent=yen(e)+" 円";
+$("bal").textContent=fmt(b);$("bal").className=b<0?"neg":"pos";renderChart();
+document.querySelectorAll("[data-dl]").forEach(el=>{const d=dsum(cur,el.dataset.dl);el.textContent=d?`うち日次記録分 ${yen(d)} 円`:""});
+document.querySelectorAll("input[data-id]").forEach(el=>{if(el!==document.activeElement){const v=val(cur,el.dataset.id);el.value=v?String(v):""}});
+let a=0,x=0;for(let m=0;m<S.months.length;m++){a+=sum("inc",m);x+=sum("exp",m)}
+const t=a-x;
+$("total").innerHTML=`<span>${S.months.length}ヶ月 収入計：${yen(a)} 円</span><span>支出計：${yen(x)} 円</span><span>収支計：<b class="${t<0?"neg":"pos"}">${fmt(t)}</b></span>`}
+function say(t){$("msg").textContent=t;clearTimeout(say.t);say.t=setTimeout(()=>$("msg").textContent="",3500)}
+const newId=()=>"c"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+function addItem(c,label){
+label=label.trim();if(!label)return null;
+const ex=S.items[c].find(it=>it.l===label);if(ex)return ex;
+const it={id:newId(),l:label};S.items[c].push(it);return it}
+let cv="bar",cc="exp",cs="cur";
+const PAL=["#2f5d9e","#c9662b","#3a8a5c","#8a5bb0","#b8901f","#2a8f9a","#b04a6b","#6b7a3a","#5d6f8f","#a86a3a","#3f7f7f","#7a5a4a"];
+const compact=n=>{const a=Math.abs(n),s=n<0?"−":"";return s+(a>=10000?(a/10000).toFixed(a%10000?1:0)+"万":yen(a))};
+const ml=i=>{const m=S.months[i].month;return /^\d{4}-\d{2}$/.test(m||"")?`${+m.slice(5)}月`:`${i+1}ヶ月目`};
+const sg=(on,a,v,l)=>`<button class="seg${on?" on":""}" data-${a}="${v}" aria-pressed="${on}">${l}</button>`;
+const axis=(L,W,R,Tp,ph,lo,rng)=>[0,1,2,3,4].map(i=>{const v=lo+rng*i/4,y=Tp+ph-i/4*ph;return `<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${L-6}" y="${y+4}" text-anchor="end">${compact(Math.round(v))}</text>`}).join("");
+function renderChart(){
+const el=$("chart");if(!el)return;
+const n=S.months.length,empty=`<p class="hint">グラフに表示する金額が、まだ入力されていません。</p>`;
+let ctl=`<div class="segs">${[["bar","棒グラフ"],["pie","円グラフ"],["line","推移"],["stack","月別の内訳"]].map(([k,l])=>sg(cv===k,"cv",k,l)).join("")}</div>`;
+if(cv!=="line")ctl+=`<div class="segs">${sg(cc==="exp","cc","exp","支出")}${sg(cc==="inc","cc","inc","収入")}</div>`;
+if(cv==="bar"||cv==="pie")ctl+=`<div class="segs">${sg(cs==="cur","cs","cur","表示中の月")}${sg(cs==="all","cs","all","全期間の合計")}</div>`;
+const D=S.items[cc].map((it,k)=>({l:it.l,k,v:cs==="cur"?val(cur,it.id):S.months.reduce((s,_,m)=>s+val(m,it.id),0)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+let body=empty;
+if(cv==="bar"&&D.length){
+const mx=D[0].v;
+body=`<svg viewBox="0 0 600 ${D.length*30+8}" role="img" aria-label="項目別の棒グラフ">${D.map((x,i)=>{const w=Math.max(2,x.v/mx*330),y=i*30+4;return `<text x="150" y="${y+17}" text-anchor="end">${h(x.l.length>11?x.l.slice(0,10)+"…":x.l)}</text><rect x="158" y="${y+3}" width="${w}" height="20" rx="2" fill="${PAL[x.k%12]}"><title>${h(x.l)}：${yen(x.v)} 円</title></rect><text x="${164+w}" y="${y+17}">${yen(x.v)} 円</text>`}).join("")}</svg>`}
+else if(cv==="pie"&&D.length){
+const T=D.reduce((s,x)=>s+x.v,0),C=2*Math.PI*80;let cum=0;
+body=`<div class="pie"><svg viewBox="0 0 220 220" role="img" aria-label="構成比の円グラフ">${D.map(x=>{const len=x.v/T*C,s=`<circle cx="110" cy="110" r="80" fill="none" stroke="${PAL[x.k%12]}" stroke-width="36" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-cum}" transform="rotate(-90 110 110)"><title>${h(x.l)}：${yen(x.v)} 円</title></circle>`;cum+=len;return s}).join("")}<text x="110" y="106" text-anchor="middle">合計</text><text x="110" y="126" text-anchor="middle" style="font-weight:700">${yen(T)} 円</text></svg><ul class="lg">${D.map(x=>`<li><i style="background:${PAL[x.k%12]}"></i>${h(x.l)}<b>${yen(x.v)} 円（${(x.v/T*100).toFixed(1)}%）</b></li>`).join("")}</ul></div>`}
+else if(cv==="line"){
+const inc=S.months.map((_,m)=>sum("inc",m)),exp=S.months.map((_,m)=>sum("exp",m)),bal=inc.map((v,i)=>v-exp[i]),all=[...inc,...exp,...bal];
+if(all.some(v=>v)){
+const lo=Math.min(0,...all),hi=Math.max(0,...all),rng=(hi-lo)||1,L=60,R=20,Tp=14,B=30,W=600,H=260,pw=W-L-R,ph=H-Tp-B;
+const X=i=>L+(n===1?pw/2:i*pw/(n-1)),Y=v=>Tp+ph-(v-lo)/rng*ph;
+const SR=[["収入",inc,PAL[0],""],["支出",exp,PAL[1],""],["収支",bal,PAL[2],"6 4"]];
+const lines=SR.map(([nm,a,c,d])=>`<polyline fill="none" stroke="${c}" stroke-width="2.5" stroke-dasharray="${d}" points="${a.map((v,i)=>X(i)+","+Y(v)).join(" ")}"/>`+a.map((v,i)=>`<circle cx="${X(i)}" cy="${Y(v)}" r="3.5" fill="${c}"><title>${h(ml(i))} ${nm}：${fmt(v)}</title></circle>`).join("")).join("");
+const xl=S.months.map((_,i)=>i%Math.ceil(n/12)===0?`<text x="${X(i)}" y="${H-10}" text-anchor="middle">${h(ml(i))}</text>`:"").join("");
+body=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="月ごとの収入・支出・収支の推移">${axis(L,W,R,Tp,ph,lo,rng)}${lines}${xl}</svg><div class="legend">${SR.map(([nm,,c])=>`<span><i style="background:${c}"></i>${nm}</span>`).join("")}</div>`}}
+else if(cv==="stack"){
+const tot=S.months.map((_,m)=>sum(cc,m)),mx=Math.max(...tot);
+if(mx>0){
+const L=60,R=10,Tp=14,B=30,W=600,H=260,pw=W-L-R,ph=H-Tp-B,bw=Math.min(48,pw/n*.6);
+let bars="";
+S.months.forEach((_,m)=>{let y=Tp+ph;const cx=L+(m+.5)*pw/n;
+S.items[cc].forEach((it,k)=>{const v=val(m,it.id);if(v<=0)return;const hh=v/mx*ph;y-=hh;bars+=`<rect x="${cx-bw/2}" y="${y}" width="${bw}" height="${hh}" fill="${PAL[k%12]}"><title>${h(ml(m))} ${h(it.l)}：${yen(v)} 円</title></rect>`});
+if(m%Math.ceil(n/12)===0)bars+=`<text x="${cx}" y="${H-10}" text-anchor="middle">${h(ml(m))}</text>`});
+const used=S.items[cc].map((it,k)=>({it,k})).filter(({it})=>S.months.some((_,m)=>val(m,it.id)>0));
+body=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="月別の内訳の積み上げ棒グラフ">${axis(L,W,R,Tp,ph,0,mx)}${bars}</svg><div class="legend">${used.map(({it,k})=>`<span><i style="background:${PAL[k%12]}"></i>${h(it.l)}</span>`).join("")}</div>`}}
+el.innerHTML=`<h2>グラフ</h2><div class="ctl">${ctl}</div><div class="ch">${body}</div>`}
+$("chart").addEventListener("click",e=>{const b=e.target.closest(".seg");if(!b)return;if(b.dataset.cv)cv=b.dataset.cv;if(b.dataset.cc)cc=b.dataset.cc;if(b.dataset.cs)cs=b.dataset.cs;renderChart()});
+let selDay="";
+const pad=n=>String(n).padStart(2,"0");
+const opts=c=>S.items[c].map(i=>`<option value="${i.id}">${h(i.l)}</option>`).join("");
+function renderCal(){
+const el=$("cal"),mo=S.months[cur].month;
+if(!/^\d{4}-\d{2}$/.test(mo||"")){el.innerHTML=`<h2>日々の記録（カレンダー）</h2><p class="hint">上の「対象月」を選ぶと、その月のカレンダーが表示されます。日々の記録は、月の合計に自動で加算されます。</p>`;return}
+const y=+mo.slice(0,4),m=+mo.slice(5),first=new Date(y,m-1,1).getDay(),days=new Date(y,m,0).getDate();
+if(selDay.slice(0,7)!==mo){const t=new Date(),ts=`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;selDay=ts.slice(0,7)===mo?ts:mo+"-01"}
+let cells="<div></div>".repeat(first);
+for(let d=1;d<=days;d++){const ds=`${mo}-${pad(d)}`,es=S.daily.filter(x=>x.date===ds),n=es.reduce((a,x)=>a+(x.c==="inc"?x.amt:-x.amt),0);
+cells+=`<button class="day${ds===selDay?" sel":""}" data-day="${ds}" aria-pressed="${ds===selDay}" aria-label="${m}月${d}日"><b>${d}</b>${es.length?`<span class="${n<0?"neg":"pos"}">${n<0?"−":"+"}${yen(Math.abs(n))}</span>`:""}</button>`}
+const L=S.daily.filter(x=>x.date===selDay).map(x=>{const it=S.items[x.c].find(i=>i.id===x.item);return `<li><span>${x.c==="inc"?"収入":"支出"}：${h(it?it.l:"（削除済み）")}　${yen(x.amt)} 円${x.memo?`（${h(x.memo)}）`:""}</span><button class="del" data-rm="${x.id}" aria-label="この記録を削除">×</button></li>`}).join("");
+el.innerHTML=`<h2>日々の記録（カレンダー）</h2><div class="dow">${[..."日月火水木金土"].map(c=>`<span>${c}</span>`).join("")}</div><div class="grid">${cells}</div>
+<div class="dp"><h3>${m}月${+selDay.slice(8)}日の記録</h3>${L?`<ul>${L}</ul>`:`<p class="hint">この日の記録はまだありません。</p>`}
+<div class="frm"><select id="dc" aria-label="区分"><option value="exp">支出</option><option value="inc">収入</option></select><select id="di" aria-label="項目">${opts("exp")}</select><input id="da" inputmode="numeric" autocomplete="off" placeholder="金額（円）" aria-label="金額"><input id="dm" maxlength="40" placeholder="メモ（任意）" aria-label="メモ"><button class="btn main full" id="dadd">記録する</button></div>
+<div class="rc"><label>レシートから合計金額を入力：<input type="file" id="rcfile" accept="image/*"></label> <span id="rcmsg" role="status"></span></div><p class="hint">レシート画像は読み取りのためClaudeに送られます。このページには保存されません。</p></div>`}
+function addDaily(){
+const a=toNum($("da").value);
+if(!a){say("金額を入力してください");$("da").focus();return}
+if(!$("di").value){say("項目がありません。先に項目を追加してください");return}
+S.daily.push({id:newId(),date:selDay,c:$("dc").value,item:$("di").value,amt:a,memo:$("dm").value.trim()});
+renderCal();calc();say("記録しました。保存すると反映されます")}
+async function receipt(f){
+$("rcmsg").textContent="読み取り中…";
+try{
+const sample=window.claude&&claude.use?await claude.use("sample"):null;
+if(!sample){$("rcmsg").textContent="この環境ではレシートの読み取りを使えません。手入力してください";return}
+const lim=await sample.limits();
+if(!lim.images){$("rcmsg").textContent="画像の読み取りに対応していません";return}
+const r=await sample.json(`これは日本のレシートの画像です。税込の合計金額だけを読み取り、次のJSONだけを返してください。{"total":整数（円）}`,{images:[f],cache:false});
+const d=/^\d{4}-\d{2}-\d{2}$/.test(r.date||"")?r.date:"";
+let note="";
+if(d&&d.slice(0,7)===S.months[cur].month)selDay=d;else if(d)note=`（レシートの日付 ${d} は表示中の月と異なるため、選択中の日に記録されます）`;
+const tot=toNum(r.total);
+$("da").value=tot?String(tot):"";
+if(!tot){$("rcmsg").textContent="合計金額を読み取れませんでした。手入力してください";return}
+$("rcmsg").textContent="合計金額を読み取りました。区分と項目を選び、金額を確認して「記録する」を押してください"+note;
+}catch(err){const m=$("rcmsg");if(m)m.textContent=err&&err.code==="not_granted"?"読み取りが許可されませんでした":"読み取れませんでした。もう一度試すか、手入力してください"}}
+$("cal").addEventListener("click",e=>{
+const d=e.target.closest("[data-day]");if(d){selDay=d.dataset.day;renderCal();return}
+const r=e.target.closest("[data-rm]");if(r){S.daily=S.daily.filter(x=>x.id!==r.dataset.rm);renderCal();calc();say("削除しました。保存すると反映されます");return}
+if(e.target.id==="dadd")addDaily()});
+$("cal").addEventListener("input",e=>{if(e.target.id==="da")e.target.value=e.target.value.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-65248)).replace(/[^0-9]/g,"")});
+$("cal").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.target.id==="da"||e.target.id==="dm")){e.preventDefault();addDaily()}});
+$("cal").addEventListener("change",async e=>{
+const t=e.target;
+if(t.id==="dc"){$("di").innerHTML=opts(t.value);return}
+if(t.id==="rcfile"&&t.files[0]){const f=t.files[0];t.value="";await receipt(f)}});
+$("tabs").addEventListener("click",e=>{const b=e.target.closest(".tab");if(b){if(b.dataset.addm){const p=S.months[S.months.length-1].month;let nm="";if(/^\d{4}-\d{2}$/.test(p||"")){let y=+p.slice(0,4),m=+p.slice(5)+1;if(m>12){m=1;y++}nm=y+"-"+pad(m)}S.months.push({month:nm,v:{}});cur=S.months.length-1;render();say(`${cur+1}ヶ月目を追加しました。保存すると反映されます`);return}cur=+b.dataset.i;render()}});
+$("sheet").addEventListener("input",e=>{
+const t=e.target;
+if(t.id==="mo"){S.months[cur].month=t.value;calc();renderCal();return}
+if(t.dataset.id){t.value=t.value.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-65248)).replace(/[^0-9]/g,"");S.months[cur].v[t.dataset.id]=String(Math.max(0,toNum(t.value)-dsum(cur,t.dataset.id))||"");calc()}});
+function doAdd(c){
+const inp=$("n_"+c),label=inp.value.trim();
+if(!label){say("項目名を入力してください");inp.focus();return}
+if(S.items[c].some(it=>it.l===label)){say("同じ名前の項目がすでにあります");return}
+const it=addItem(c,label);render();
+const f=$((c==="inc"?"i_":"e_")+it.id);if(f)f.focus();
+say(`「${label}」を追加しました。保存すると反映されます`)}
+$("sheet").addEventListener("click",e=>{
+if(e.target.id==="delm"){if(!confirm(`${cur+1}ヶ月目を削除します。この月の入力と日々の記録も消えます。よろしいですか？`))return;const mo=S.months[cur].month;S.months.splice(cur,1);if(mo&&!S.months.some(m=>m.month===mo))S.daily=S.daily.filter(x=>x.date.slice(0,7)!==mo);cur=Math.max(0,Math.min(cur,S.months.length-1));render();say("削除しました。保存すると反映されます");return}
+const a=e.target.closest("[data-add]");if(a){doAdd(a.dataset.add);return}
+const d=e.target.closest(".del");
+if(d){
+const c=d.dataset.c,id=d.dataset.id,it=S.items[c].find(x=>x.id===id);
+const used=S.months.some(m=>toNum(m.v[id])>0);
+if(!confirm(`「${it.l}」を削除します。${used?"3ヶ月分の入力済みの金額も消えます。":""}よろしいですか？`))return;
+S.items[c]=S.items[c].filter(x=>x.id!==id);S.months.forEach(m=>delete m.v[id]);S.daily=S.daily.filter(x=>x.item!==id);render();say("削除しました。保存すると反映されます")}});
+$("sheet").addEventListener("change",e=>{
+const t=e.target;if(t.dataset.id){const v=val(cur,t.dataset.id);t.value=v?String(v):"";return}
+if(!t.dataset.nm)return;
+const c=t.dataset.nm,it=S.items[c].find(x=>x.id===t.dataset.nid),v=t.value.trim();
+if(!it||v===it.l)return;
+if(!v){t.value=it.l;say("項目名は空にできません");return}
+if(S.items[c].some(x=>x!==it&&x.l===v)){t.value=it.l;say("同じ名前の項目がすでにあります");return}
+it.l=v;t.value=v;say("項目名を変更しました。保存すると反映されます")});
+$("sheet").addEventListener("keydown",e=>{
+if(e.key==="Enter"&&e.target.dataset.nm){e.preventDefault();e.target.blur();return}
+if(e.key==="Enter"&&e.target.id&&e.target.id.startsWith("n_")){e.preventDefault();doAdd(e.target.id.slice(2))}});
+$("save").onclick=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));say("保存しました")}catch(e){say("保存できませんでした。ブラウザの設定をご確認ください")}};
+$("reset").onclick=()=>{if(!confirm(`${cur+1}ヶ月目の入力内容をクリアします。よろしいですか？`))return;const mo0=S.months[cur].month;if(mo0)S.daily=S.daily.filter(x=>x.date.slice(0,7)!==mo0);S.months[cur]={month:"",v:{}};render();say("クリアしました。保存すると反映されます")};
+/* CSV */
+const q=v=>/[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;
+$("exp").onclick=()=>{
+const L=[["区分","項目"].concat(S.months.map((m,i)=>`${i+1}ヶ月目`)),["対象月",""].concat(S.months.map(m=>m.month||""))];
+["inc","exp"].forEach(c=>S.items[c].forEach(it=>L.push([CAT[c],it.l].concat(S.months.map(m=>toNum(m.v[it.id]))))));
+const t=L.map(r=>r.map(x=>q(String(x))).join(",")).join("\n");
+$("io").value=t;$("io").focus();$("io").select();
+try{navigator.clipboard.writeText(t).then(()=>say("書き出してコピーしました"),()=>say("書き出しました。内容をコピーして保存してください"))}catch(e){say("書き出しました。内容をコピーして保存してください")}};
+function parse(t,d){
+const r=[];let row=[],f="",inq=false;
+for(let i=0;i<t.length;i++){const c=t[i];
+if(inq){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else inq=false}else f+=c}
+else if(c==='"')inq=true;
+else if(c===d){row.push(f);f=""}
+else if(c==="\n"||c==="\r"){if(c==="\r"&&t[i+1]==="\n")i++;row.push(f);r.push(row);row=[];f=""}
+else f+=c}
+if(f||row.length){row.push(f);r.push(row)}
+return r}
+$("file").addEventListener("change",async e=>{
+const fl=e.target.files[0];if(!fl)return;
+try{
+const buf=await fl.arrayBuffer();let t;
+try{t=new TextDecoder("utf-8",{fatal:true}).decode(buf)}catch(_){t=new TextDecoder("shift_jis").decode(buf)}
+$("io").value=t.replace(/^\uFEFF/,"");say("ファイルを読み込みました。「取り込む」を押してください")
+}catch(_){say("ファイルを読み込めませんでした")}
+e.target.value=""});
+$("imp").onclick=()=>{
+const t=$("io").value.replace(/^\uFEFF/,"");
+if(!t.trim()){say("CSVを貼り付けるか、ファイルを選択してください");return}
+const first=t.split(/\r?\n/)[0],d=(first.includes("\t")&&!first.includes(","))?"\t":",";
+const rows=parse(t,d),map={"収入":"inc","支出":"exp"};
+const hasData=rows.some(r=>map[(r[0]||"").trim()]);
+const hasMonth=rows.some(r=>(r[0]||"").trim()==="対象月");
+if(!hasData&&!hasMonth){say("取り込める行がありません。1列目が「収入」「支出」の行が必要です");return}
+if(!confirm("CSVの内容を現在の入力に取り込みます。同じ名前の項目の金額は上書きされます。よろしいですか？"))return;
+let cols=0;rows.forEach(r=>{const k=(r[0]||"").trim();if(map[k]||k==="対象月")for(let i=r.length-1;i>=2;i--)if((r[i]||"").trim()!==""){cols=Math.max(cols,i-1);break}});
+cols=Math.min(cols,MAX);while(S.months.length<cols)S.months.push({month:"",v:{}});
+let n=0,added=0;
+rows.forEach(r=>{
+const k=(r[0]||"").trim();
+if(k==="対象月"){for(let m=0;m<S.months.length;m++){const v=(r[2+m]||"").trim().replace(/\//g,"-");if(/^\d{4}-\d{1,2}$/.test(v)){const p=v.split("-");S.months[m].month=p[0]+"-"+p[1].padStart(2,"0")}}return}
+const c=map[k];if(!c)return;
+const label=(r[1]||"").trim();if(!label)return;
+const before=S.items[c].length,it=addItem(c,label);
+if(S.items[c].length>before)added++;
+for(let m=0;m<S.months.length;m++){const raw=(r[2+m]||"").trim();if(raw!==""){const v=toNum(raw);S.months[m].v[it.id]=v?String(v):""}}
+n++});
+render();say(`${n}行を取り込みました（新規項目 ${added}件）。保存すると反映されます`)};
+render();
+</script>
+<script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))</script>
+</body>
+</html>
