@@ -63,7 +63,7 @@ textarea{width:100%;min-height:140px;padding:8px;font-family:ui-monospace,Menlo,
 .cal h3{font-size:.95rem;margin:0 0 8px}
 .dow,.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
 .dow span{text-align:center;font-size:.8rem;color:var(--sub)}
-.day{min-height:50px;font:inherit;font-size:.78rem;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:flex-end;padding:3px 4px;border-radius:3px;overflow:hidden}
+.day{min-height:64px;font:inherit;font-size:.78rem;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:flex-end;padding:3px 4px;border-radius:3px;overflow:hidden}
 .day.sel{outline:2px solid var(--accent);background:var(--head)}
 .day span{font-size:.65rem;font-variant-numeric:tabular-nums}
 .dp{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
@@ -75,6 +75,14 @@ textarea{width:100%;min-height:140px;padding:8px;font-family:ui-monospace,Menlo,
 .rc{margin-top:10px;font-size:.88rem}
 .hint{color:var(--sub);font-size:.8rem;margin:6px 0}
 .dly{display:block;font-size:.7rem;color:var(--sub);text-align:right}
+.mv{display:flex;gap:2px}
+tr.drag th,tr.drag td{background:var(--head)}
+tr.drag{opacity:.85}
+.ins-before th,.ins-before td{border-top:3px solid var(--accent)}
+.ins-after th,.ins-after td{border-bottom:3px solid var(--accent)}
+.nm{-webkit-touch-callout:none}
+.mvb{font:inherit;font-size:.65rem;line-height:1;padding:4px 5px;border:1px solid var(--line);background:transparent;color:var(--accent);cursor:pointer;border-radius:3px}
+.mvb:disabled{opacity:.3;cursor:default}
 .ctl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .segs{display:flex;border:1px solid var(--accent);border-radius:3px;overflow:hidden}
 .seg{font:inherit;font-size:.85rem;padding:6px 12px;border:0;background:transparent;color:var(--accent);cursor:pointer}
@@ -91,14 +99,14 @@ textarea{width:100%;min-height:140px;padding:8px;font-family:ui-monospace,Menlo,
 .lg i,.legend i{width:12px;height:12px;border-radius:2px;flex:0 0 auto}
 @media print{.ctl{display:none}}
 @media print{.frm,.rc,.cal .hint{display:none}}
-@media (max-width:520px){th{width:48%;font-size:.9rem}.balance output{font-size:1.25rem}}
+@media (max-width:520px){th{width:58%;font-size:.9rem}.balance output{font-size:1.25rem}}
 @media print{.tabs,.actions,.note,.add,.del,details{display:none}body{background:#fff}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <h1>家計の状況</h1>
-<p class="lead">月ごとの収入と支出を入力してください（単位：円）。「＋ 追加」で月を増やせ、項目名は直接書き換えられます</p>
+<p class="lead">月ごとの収入と支出を入力してください（単位：円）。「＋ 追加」で月を増やせ、項目名は直接書き換えられ、行を長押ししてドラッグすると並べ替えできます</p>
 <div class="tabs" role="tablist" id="tabs"></div>
 <section class="sheet" id="sheet" role="tabpanel"></section>
 <section class="cal" id="cal" aria-label="日々の記録"></section>
@@ -106,7 +114,7 @@ textarea{width:100%;min-height:140px;padding:8px;font-family:ui-monospace,Menlo,
 <div class="total" id="total"></div>
 <div class="actions">
 <button class="btn main" id="save">保存</button>
-<button class="btn" id="reset">リセット</button>
+<button class="btn" id="reset">リセット</button><button class="btn" id="xl">Excelで保存</button><button class="btn" id="pd">PDFで保存</button>
 <span id="msg" role="status"></span>
 </div>
 <details>
@@ -135,6 +143,8 @@ if(s){const d=JSON.parse(s);if(d&&d.items&&Array.isArray(d.items.inc)&&Array.isA
 else if(o){const d=JSON.parse(o);if(Array.isArray(d)&&d.length===N)S.months=d}
 }catch(e){}
 if(!Array.isArray(S.daily))S.daily=[];
+if(Number.isInteger(S.cur)&&S.cur>=0&&S.cur<S.months.length)cur=S.cur;
+else{let l=-1;S.months.forEach((m,i)=>{if(Object.values(m.v).some(x=>parseInt(x)>0)||S.daily.some(x=>m.month&&x.date.slice(0,7)===m.month))l=i});if(l>=0)cur=l}
 const $=id=>document.getElementById(id);
 const h=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const yen=n=>n.toLocaleString("ja-JP");
@@ -145,11 +155,11 @@ const sum=(c,m)=>S.items[c].reduce((a,it)=>a+val(m,it.id),0);
 const fmt=b=>(b<0?"−":"")+yen(Math.abs(b))+" 円";
 const isCustom=it=>it.id[0]==="c"&&it.id.length>6;
 function table(c,p,title,foot,tid){
-const rows=S.items[c].map(it=>`<tr><th scope="row"><div class="lb"><input class="nm" data-nm="${c}" data-nid="${it.id}" value="${h(it.l)}" maxlength="30" aria-label="項目名（書き換えられます）"><button class="del" data-c="${c}" data-id="${it.id}" aria-label="${h(it.l)}を削除">×</button></div></th><td><div class="yen"><input id="${p}${it.id}" data-id="${it.id}" type="text" inputmode="numeric" autocomplete="off" value="${val(cur,it.id)||""}" placeholder="0"><span>円</span></div><small class="dly" data-dl="${it.id}"></small></td></tr>`).join("");
+const rows=S.items[c].map((it,ix,ar)=>`<tr><th scope="row"><div class="lb"><input class="nm" data-nm="${c}" data-nid="${it.id}" value="${h(it.l)}" maxlength="30" aria-label="項目名（書き換えられます）"><span class="mv"><button class="mvb" data-mv="-1" data-c="${c}" data-id="${it.id}" aria-label="${h(it.l)}を上へ" ${ix===0?"disabled":""}>▲</button><button class="mvb" data-mv="1" data-c="${c}" data-id="${it.id}" aria-label="${h(it.l)}を下へ" ${ix===ar.length-1?"disabled":""}>▼</button></span><button class="del" data-c="${c}" data-id="${it.id}" aria-label="${h(it.l)}を削除">×</button></div></th><td><div class="yen"><input id="${p}${it.id}" data-id="${it.id}" type="text" inputmode="numeric" autocomplete="off" value="${val(cur,it.id)||""}" placeholder="0"><span>円</span></div><small class="dly" data-dl="${it.id}"></small></td></tr>`).join("");
 return `<table><caption>${title}</caption><tbody>${rows}</tbody><tfoot><tr><th>${foot}</th><td id="${tid}"></td></tr></tfoot></table>
 <div class="add"><input id="n_${c}" maxlength="30" placeholder="${CAT[c]}の項目名を入力" aria-label="${CAT[c]}の項目名"><button class="btn" data-add="${c}">項目を追加</button></div>`}
 function render(){
-$("tabs").innerHTML=S.months.map((m,i)=>`<button class="tab" role="tab" aria-selected="${i===cur}" data-i="${i}">${i+1}ヶ月目</button>`).join("")+(S.months.length<MAX?`<button class="tab addm" data-addm="1" aria-label="月を追加">＋ 追加</button>`:"");
+S.cur=cur;$("tabs").innerHTML=S.months.map((m,i)=>`<button class="tab" role="tab" aria-selected="${i===cur}" data-i="${i}">${i+1}ヶ月目</button>`).join("")+(S.months.length<MAX?`<button class="tab addm" data-addm="1" aria-label="月を追加">＋ 追加</button>`:"");
 $("sheet").innerHTML=`<div class="period"><label for="mo">対象月：</label><input id="mo" type="month" value="${h(S.months[cur].month||"")}">${S.months.length>1?`<button class="btn" id="delm" style="margin-left:auto;padding:4px 10px">この月を削除</button>`:""}</div>`+table("inc","i_","【収入】","収入合計","ti")+table("exp","e_","【支出】","支出合計","te")+`<div class="balance"><span>収支バランス（残金）</span><output id="bal"></output></div>`;
 calc();renderCal()}
 function calc(){
@@ -208,6 +218,92 @@ const used=S.items[cc].map((it,k)=>({it,k})).filter(({it})=>S.months.some((_,m)=
 body=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="月別の内訳の積み上げ棒グラフ">${axis(L,W,R,Tp,ph,0,mx)}${bars}</svg><div class="legend">${used.map(({it,k})=>`<span><i style="background:${PAL[k%12]}"></i>${h(it.l)}</span>`).join("")}</div>`}}
 el.innerHTML=`<h2>グラフ</h2><div class="ctl">${ctl}</div><div class="ch">${body}</div>`}
 $("chart").addEventListener("click",e=>{const b=e.target.closest(".seg");if(!b)return;if(b.dataset.cv)cv=b.dataset.cv;if(b.dataset.cc)cc=b.dataset.cc;if(b.dataset.cs)cs=b.dataset.cs;renderChart()});
+let LP=null;
+const rowsOf=tb=>[...tb.querySelectorAll("tr")];
+function lpEnd(commit){
+if(!LP)return;
+clearTimeout(LP.t);
+const L=LP;LP=null;
+document.removeEventListener("pointermove",lpMove);document.removeEventListener("pointerup",lpUp);document.removeEventListener("pointercancel",lpCancel);
+if(!L.on)return;
+rowsOf(L.tb).forEach(r=>r.classList.remove("drag","ins-before","ins-after"));
+if(!commit||L.to==null)return;
+const arr=S.items[L.c],from=L.from;let to=L.to;
+const it=arr.splice(from,1)[0];if(to>from)to--;arr.splice(to,0,it);
+if(to!==from){render();say("並べ替えました。保存すると反映されます")}}
+function lpMove(e){
+if(!LP||e.pointerId!==LP.id)return;
+if(!LP.on){if(Math.hypot(e.clientX-LP.x,e.clientY-LP.y)>10)lpEnd(false);return}
+const y=e.clientY,rows=rowsOf(LP.tb);
+if(y<70)scrollBy(0,-14);else if(y>innerHeight-70)scrollBy(0,14);
+let idx=rows.findIndex(r=>{const b=r.getBoundingClientRect();return y<b.top+b.height/2});
+if(idx<0)idx=rows.length;
+LP.to=idx;
+rows.forEach((r,i)=>{r.classList.toggle("ins-before",i===idx);r.classList.toggle("ins-after",idx===rows.length&&i===rows.length-1)})}
+function lpUp(e){if(LP&&e.pointerId===LP.id)lpEnd(true)}
+function lpCancel(e){if(LP&&e.pointerId===LP.id)lpEnd(false)}
+$("sheet").addEventListener("pointerdown",e=>{
+if(e.button>0||LP)return;
+const th=e.target.closest("tbody th");if(!th||e.target.closest("button"))return;
+const tr=th.parentElement,tb=tr.parentElement,nm=th.querySelector("[data-nm]");if(!nm)return;
+const c=nm.dataset.nm,from=S.items[c].findIndex(x=>x.id===nm.dataset.nid);if(from<0)return;
+LP={id:e.pointerId,x:e.clientX,y:e.clientY,tr,tb,c,from,to:null,on:false,t:setTimeout(()=>{
+if(!LP)return;LP.on=true;tr.classList.add("drag");
+if(navigator.vibrate)try{navigator.vibrate(25)}catch(_){}
+if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
+const sel=getSelection();if(sel)sel.removeAllRanges()},450)};
+document.addEventListener("pointermove",lpMove);document.addEventListener("pointerup",lpUp);document.addEventListener("pointercancel",lpCancel)});
+document.addEventListener("touchmove",e=>{if(LP&&LP.on&&e.cancelable)e.preventDefault()},{passive:false});
+$("sheet").addEventListener("contextmenu",e=>{if(LP)e.preventDefault()});
+const H2C="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",JSP="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",XLS="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+const loadJS=u=>new Promise((ok,ng)=>{const s=document.createElement("script");s.src=u;s.onload=ok;s.onerror=()=>ng(new Error("load"));document.head.appendChild(s)});
+async function saveFile(name,blob){
+let dl=null;try{dl=window.claude&&claude.use?await claude.use("downloads"):null}catch(_){}
+if(dl){try{await dl.save({filename:name,data:blob});say("保存しました")}catch(e){say(e&&e.code==="declined"?"保存をキャンセルしました":"保存できませんでした")}return}
+const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);say("保存しました")}
+async function exportXlsx(){
+try{
+say("Excelを作成中…");
+if(!window.XLSX)await loadJS(XLS);
+const M=S.months,A=[["区分","項目",...M.map((m,i)=>m.month||`${i+1}ヶ月目`),"合計"]];
+const tot=a=>a.reduce((x,y)=>x+y,0);
+const blk=c=>{S.items[c].forEach(it=>{const v=M.map((_,m)=>val(m,it.id));A.push([CAT[c],it.l,...v,tot(v)])});const t=M.map((_,m)=>sum(c,m));A.push([CAT[c]+"合計","",...t,tot(t)]);return t};
+const ti=blk("inc"),te=blk("exp"),bl=ti.map((v,i)=>v-te[i]);
+A.push(["収支バランス（残金）","",...bl,tot(bl)]);
+const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(A);
+ws["!cols"]=[{wch:16},{wch:26},...M.map(()=>({wch:12})),{wch:14}];
+XLSX.utils.book_append_sheet(wb,ws,"家計の状況");
+const D=[["日付","区分","項目","金額","メモ"]].concat([...S.daily].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0).map(x=>{const it=S.items[x.c].find(i=>i.id===x.item);return [x.date,CAT[x.c],it?it.l:"",x.amt,x.memo||""]}));
+const w2=XLSX.utils.aoa_to_sheet(D);w2["!cols"]=[{wch:12},{wch:8},{wch:22},{wch:12},{wch:24}];
+XLSX.utils.book_append_sheet(wb,w2,"日々の記録");
+const buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
+await saveFile("家計の状況.xlsx",new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}))
+}catch(e){say("Excelを作成できませんでした。ネットにつながっているか、ご確認ください")}}
+function pdfPage(m){
+const mo=S.months[m].month,ttl=/^\d{4}-\d{2}$/.test(mo||"")?`${mo.slice(0,4)}年${+mo.slice(5)}月`:`${m+1}ヶ月目`;
+const td="border:1px solid #888;padding:6px 10px;",bd="font-weight:700;background:#e8ecf2;";
+const row=(a,b,t)=>`<tr><td style='${td}${t?bd:""}'>${a}</td><td style='${td}text-align:right;${t?bd:""}'>${b}</td></tr>`;
+const part=c=>`<div style='font-weight:700;margin:16px 0 4px'>【${CAT[c]}】</div><table style='width:100%;border-collapse:collapse;font-size:14px'>${S.items[c].map(it=>row(h(it.l),yen(val(m,it.id))+" 円")).join("")}${row(CAT[c]+"合計",yen(sum(c,m))+" 円",1)}</table>`;
+return `<div style='width:794px;padding:48px 56px;background:#fff;color:#111;font-family:Hiragino Sans,Yu Gothic,Noto Sans JP,sans-serif;box-sizing:border-box'><div style='text-align:center;font-size:22px;letter-spacing:.3em'>家計の状況</div><div style='text-align:center;margin:4px 0 8px'>${ttl}</div>${part("inc")}${part("exp")}<div style='margin-top:18px;border:2px solid #1f3a5f;padding:10px 14px;display:flex;justify-content:space-between;font-weight:700'><span>収支バランス（残金）</span><span>${fmt(sum("inc",m)-sum("exp",m))}</span></div></div>`}
+async function exportPdf(){
+const box=document.createElement("div");
+try{
+say("PDFを作成中…");
+if(!window.html2canvas)await loadJS(H2C);
+if(!window.jspdf)await loadJS(JSP);
+box.style.cssText="position:fixed;left:-9999px;top:0";
+box.innerHTML=S.months.map((_,m)=>pdfPage(m)).join("");
+document.body.appendChild(box);
+const pdf=new jspdf.jsPDF({unit:"mm",format:"a4"}),pgs=[...box.children];
+for(let i=0;i<pgs.length;i++){
+const cv=await html2canvas(pgs[i],{scale:2,backgroundColor:"#ffffff"});
+let w=210,hh=w*cv.height/cv.width;if(hh>297){w=w*297/hh;hh=297}
+if(i)pdf.addPage();
+pdf.addImage(cv.toDataURL("image/jpeg",.92),"JPEG",(210-w)/2,0,w,hh)}
+await saveFile("家計の状況.pdf",pdf.output("blob"))
+}catch(e){say("PDFを作成できませんでした。ネットにつながっているか、ご確認ください")}finally{box.remove()}}
+$("xl").onclick=exportXlsx;$("pd").onclick=exportPdf;
+let calv="both";
 let selDay="";
 const pad=n=>String(n).padStart(2,"0");
 const opts=c=>S.items[c].map(i=>`<option value="${i.id}">${h(i.l)}</option>`).join("");
@@ -217,10 +313,10 @@ if(!/^\d{4}-\d{2}$/.test(mo||"")){el.innerHTML=`<h2>日々の記録（カレン�
 const y=+mo.slice(0,4),m=+mo.slice(5),first=new Date(y,m-1,1).getDay(),days=new Date(y,m,0).getDate();
 if(selDay.slice(0,7)!==mo){const t=new Date(),ts=`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;selDay=ts.slice(0,7)===mo?ts:mo+"-01"}
 let cells="<div></div>".repeat(first);
-for(let d=1;d<=days;d++){const ds=`${mo}-${pad(d)}`,es=S.daily.filter(x=>x.date===ds),n=es.reduce((a,x)=>a+(x.c==="inc"?x.amt:-x.amt),0);
-cells+=`<button class="day${ds===selDay?" sel":""}" data-day="${ds}" aria-pressed="${ds===selDay}" aria-label="${m}月${d}日"><b>${d}</b>${es.length?`<span class="${n<0?"neg":"pos"}">${n<0?"−":"+"}${yen(Math.abs(n))}</span>`:""}</button>`}
+for(let d=1;d<=days;d++){const ds=`${mo}-${pad(d)}`,es=S.daily.filter(x=>x.date===ds),ci=es.filter(x=>x.c==="inc").reduce((a,x)=>a+x.amt,0),ce=es.filter(x=>x.c==="exp").reduce((a,x)=>a+x.amt,0);
+cells+=`<button class="day${ds===selDay?" sel":""}" data-day="${ds}" aria-pressed="${ds===selDay}" aria-label="${m}月${d}日"><b>${d}</b>${ci&&calv!=="exp"?`<span class="pos">＋${yen(ci)}</span>`:""}${ce&&calv!=="inc"?`<span class="neg">−${yen(ce)}</span>`:""}</button>`}
 const L=S.daily.filter(x=>x.date===selDay).map(x=>{const it=S.items[x.c].find(i=>i.id===x.item);return `<li><span>${x.c==="inc"?"収入":"支出"}：${h(it?it.l:"（削除済み）")}　${yen(x.amt)} 円${x.memo?`（${h(x.memo)}）`:""}</span><button class="del" data-rm="${x.id}" aria-label="この記録を削除">×</button></li>`}).join("");
-el.innerHTML=`<h2>日々の記録（カレンダー）</h2><div class="dow">${[..."日月火水木金土"].map(c=>`<span>${c}</span>`).join("")}</div><div class="grid">${cells}</div>
+el.innerHTML=`<h2>日々の記録（カレンダー）</h2><div class="ctl"><div class="segs">${sg(calv==="both","calv","both","収入と支出")}${sg(calv==="inc","calv","inc","収入のみ")}${sg(calv==="exp","calv","exp","支出のみ")}</div></div><p class="hint"><span class="pos">＋収入</span>　<span class="neg">−支出</span>（日ごとの合計）</p><div class="dow">${[..."日月火水木金土"].map(c=>`<span>${c}</span>`).join("")}</div><div class="grid">${cells}</div>
 <div class="dp"><h3>${m}月${+selDay.slice(8)}日の記録</h3>${L?`<ul>${L}</ul>`:`<p class="hint">この日の記録はまだありません。</p>`}
 <div class="frm"><select id="dc" aria-label="区分"><option value="exp">支出</option><option value="inc">収入</option></select><select id="di" aria-label="項目">${opts("exp")}</select><input id="da" inputmode="numeric" autocomplete="off" placeholder="金額（円）" aria-label="金額"><input id="dm" maxlength="40" placeholder="メモ（任意）" aria-label="メモ"><button class="btn main full" id="dadd">記録する</button></div>
 <div class="rc"><label>レシートから合計金額を入力：<input type="file" id="rcfile" accept="image/*"></label> <span id="rcmsg" role="status"></span></div><p class="hint">レシート画像は読み取りのためClaudeに送られます。このページには保存されません。</p></div>`}
@@ -247,6 +343,7 @@ if(!tot){$("rcmsg").textContent="合計金額を読み取れませんでした�
 $("rcmsg").textContent="合計金額を読み取りました。区分と項目を選び、金額を確認して「記録する」を押してください"+note;
 }catch(err){const m=$("rcmsg");if(m)m.textContent=err&&err.code==="not_granted"?"読み取りが許可されませんでした":"読み取れませんでした。もう一度試すか、手入力してください"}}
 $("cal").addEventListener("click",e=>{
+const cv2=e.target.closest("[data-calv]");if(cv2){calv=cv2.dataset.calv;renderCal();return}
 const d=e.target.closest("[data-day]");if(d){selDay=d.dataset.day;renderCal();return}
 const r=e.target.closest("[data-rm]");if(r){S.daily=S.daily.filter(x=>x.id!==r.dataset.rm);renderCal();calc();say("削除しました。保存すると反映されます");return}
 if(e.target.id==="dadd")addDaily()});
@@ -270,6 +367,13 @@ const f=$((c==="inc"?"i_":"e_")+it.id);if(f)f.focus();
 say(`「${label}」を追加しました。保存すると反映されます`)}
 $("sheet").addEventListener("click",e=>{
 if(e.target.id==="delm"){if(!confirm(`${cur+1}ヶ月目を削除します。この月の入力と日々の記録も消えます。よろしいですか？`))return;const mo=S.months[cur].month;S.months.splice(cur,1);if(mo&&!S.months.some(m=>m.month===mo))S.daily=S.daily.filter(x=>x.date.slice(0,7)!==mo);cur=Math.max(0,Math.min(cur,S.months.length-1));render();say("削除しました。保存すると反映されます");return}
+const mv=e.target.closest("[data-mv]");
+if(mv){const c=mv.dataset.c,id=mv.dataset.id,L=S.items[c],i=L.findIndex(x=>x.id===id),j=i+(+mv.dataset.mv);
+if(i<0||j<0||j>=L.length)return;
+[L[i],L[j]]=[L[j],L[i]];render();
+const f=document.querySelector(`[data-mv="${mv.dataset.mv}"][data-id="${id}"]`);
+if(f&&!f.disabled)f.focus();else{const g=document.querySelector(`[data-mv][data-id="${id}"]:not(:disabled)`);if(g)g.focus()}
+say("並べ替えました。保存すると反映されます");return}
 const a=e.target.closest("[data-add]");if(a){doAdd(a.dataset.add);return}
 const d=e.target.closest(".del");
 if(d){
