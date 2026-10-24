@@ -151,7 +151,7 @@ tr.drag{opacity:.85}
 <p class="hint" id="iomsg" role="status"></p>
 <p>取り込むと、同じ名前の項目の金額は上書きされ、見つからない項目は新しい項目として追加されます。文字コードはUTF-8とShift_JISに対応しています。「日次」の行があると、その月の日々の記録は、CSVの内容に置き換わります。</p>
 </details>
-<p class="note">入力内容はこのブラウザ内にのみ保存されます。実際の申立書の書式は裁判所により異なるため、提出前に管轄の裁判所の書式をご確認ください。</p>
+<p class="note">入力内容は、入力を終えて数秒後に、自動でこのブラウザ内に保存されます（「保存」ボタンですぐ保存もできます）。実際の申立書の書式は裁判所により異なるため、提出前に管轄の裁判所の書式をご確認ください。</p>
 </div>
 <script>
 const INC=[["self","本人の給与"],["partner","同居人の給与"],["welfare","生活保護費"],["pension","年金・手当"],["otherIn","その他"]];
@@ -194,7 +194,7 @@ document.querySelectorAll("input[data-id]").forEach(el=>{if(el!==document.active
 let a=0,x=0;for(let m=0;m<S.months.length;m++){a+=sum("inc",m);x+=sum("exp",m)}
 const t=a-x;
 $("total").innerHTML=`<span>${S.months.length}ヶ月 収入計：${yen(a)} 円</span><span>支出計：${yen(x)} 円</span><span>収支計：<b class="${t<0?"neg":"pos"}">${fmt(t)}</b></span>`}
-function say(t){$("msg").textContent=t;$("iomsg").textContent=t;clearTimeout(say.t);say.t=setTimeout(()=>{$("msg").textContent="";$("iomsg").textContent=""},6000)}
+function say(t){t=String(t).replace(/保存すると反映されます/g,"自動で保存されます");$("msg").textContent=t;$("iomsg").textContent=t;clearTimeout(say.t);say.t=setTimeout(()=>{$("msg").textContent="";$("iomsg").textContent=""},6000)}
 const newId=()=>"c"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 function addItem(c,label){
 label=label.trim();if(!label)return null;
@@ -332,9 +332,9 @@ let savedStr=strip(S),syncRef=null,conflict=false,busy=false,prevStr=savedStr;
 function setSync(t){const e=$("sync");if(e)e.textContent=t}
 async function doSave(auto){
 S.savedAt=Date.now();
-try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){if(!auto&&!syncRef){say("保存できませんでした。ブラウザの設定をご確認ください");return}}
+try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){if(!syncRef){savedStr=strip(S);say("保存できませんでした。ブラウザの設定をご確認ください");return}}
 savedStr=strip(S);conflict=false;
-if(!syncRef){if(!auto)say("保存しました");return}
+if(!syncRef){say(auto?"自動で保存しました":"保存しました");return}
 try{await syncRef.set(JSON.parse(JSON.stringify(S)));say(auto?"自動で保存・同期しました":"保存して同期しました")}
 catch(e){say(e&&(e.code==="quota_exceeded"||e.code==="invalid_argument")?"同期できませんでした（データが大きすぎる可能性があります）。この端末には保存しました":"同期できませんでした。この端末には保存しました")}}
 function onRemote(snap){
@@ -360,10 +360,11 @@ if(!first.exists&&strip(S)!==strip(fresh()))await doSave(true);
 syncRef.onSnapshot(onRemote,()=>setSync("同期：停止しました（この端末には保存されます）"))
 }catch(e){syncRef=null;setSync("同期：オフ（この端末のブラウザにだけ保存されます）")}}
 setInterval(async()=>{
-if(!syncRef||busy||conflict)return;
+if(busy||conflict)return;
 const c=strip(S);
 if(c!==savedStr&&c===prevStr){busy=true;try{await doSave(true)}finally{busy=false}}
-prevStr=c},3000);
+prevStr=c},1500);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&strip(S)!==savedStr&&!conflict)doSave(true)});
 function askOK(msg){return new Promise(res=>{
 const d=document.createElement("dialog");
 d.innerHTML=`<p style="margin:0 0 14px;line-height:1.6"></p><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" data-v="0">キャンセル</button><button class="btn main" data-v="1">OK</button></div>`;
