@@ -138,16 +138,17 @@ tr.drag{opacity:.85}
 <button class="btn" id="reset">リセット</button><button class="btn" id="xl">Excelで保存</button><button class="btn" id="pd">PDFで保存</button>
 <span id="msg" role="status"></span>
 </div>
+<p class="hint" id="sync"></p>
 <details>
 <summary>CSVのインポート／エクスポート</summary>
-<p>Excelなどで作ったCSVを読み込めます。1行目は「区分,項目,1ヶ月目,2ヶ月目,3ヶ月目,…」（列を増やすと月が自動で追加されます）、区分には「収入」または「支出」を入れます。「対象月」の行（例：対象月,,2026-08,2026-09,2026-10）も使えます。まず「CSVを書き出す」で見本を出し、編集して貼り付けるのが簡単です。</p>
+<p>Excelなどで作ったCSVを読み込めます。1行目は「区分,項目,1ヶ月目,2ヶ月目,3ヶ月目,…」（列を増やすと月が自動で追加されます）、区分には「収入」または「支出」を入れます。「対象月」の行（例：対象月,,2026-08,2026-09,2026-10）も使えます。「CSVを書き出す」で、現在入力されている内容（日々の記録も含む）を書き出せます。書き出したCSVは、そのまま取り込めます。金額は、日々の記録の分を含めた合計です。</p>
 <div class="row">
 <input type="file" id="file" accept=".csv,.tsv,.txt" aria-label="CSVファイルを選択">
 <button class="btn" id="exp">CSVを書き出す</button>
 <button class="btn main" id="imp">取り込む</button>
 </div>
 <textarea id="io" spellcheck="false" aria-label="CSVの内容" placeholder="ここにCSVを貼り付けるか、ファイルを選択してください"></textarea>
-<p>取り込むと、同じ名前の項目の金額は上書きされ、見つからない項目は新しい項目として追加されます。文字コードはUTF-8とShift_JISに対応しています。</p>
+<p>取り込むと、同じ名前の項目の金額は上書きされ、見つからない項目は新しい項目として追加されます。文字コードはUTF-8とShift_JISに対応しています。「日次」の行があると、その月の日々の記録は、CSVの内容に置き換わります。</p>
 </details>
 <p class="note">入力内容はこのブラウザ内にのみ保存されます。実際の申立書の書式は裁判所により異なるため、提出前に管轄の裁判所の書式をご確認ください。</p>
 </div>
@@ -156,7 +157,7 @@ const INC=[["self","本人の給与"],["partner","同居人の給与"],["welfare
 const EXP=[["rent","家賃・住宅ローン"],["food","食費"],["elec","電気代"],["gas","ガス代"],["water","水道代"],["comm","通信費（携帯・ネット）"],["daily","日用品費"],["med","医療費"],["trans","交通費"],["ins","生命保険料"],["otherEx","その他の支出"]];
 const KEY="kakeibo-jokyo-v2",OLD="kakeibo-jokyo-v1",N=3,MAX=36,CAT={inc:"収入",exp:"支出"};
 const mk=l=>l.map(([id,l])=>({id,l}));
-const fresh=()=>({items:{inc:mk(INC),exp:mk(EXP)},months:Array.from({length:N},()=>({month:"",v:{}}))});
+const fresh=()=>({items:{inc:mk(INC),exp:mk(EXP)},months:Array.from({length:N},()=>({month:"",v:{}})),daily:[]});
 let S=fresh(),cur=0;
 try{
 const s=localStorage.getItem(KEY),o=localStorage.getItem(OLD);
@@ -324,6 +325,44 @@ pdf.addImage(cv.toDataURL("image/jpeg",.92),"JPEG",(210-w)/2,0,w,hh)}
 await saveFile("家計の状況.pdf",pdf.output("blob"))
 }catch(e){say("PDFを作成できませんでした。ネットにつながっているか、ご確認ください")}finally{box.remove()}}
 $("xl").onclick=exportXlsx;$("pd").onclick=exportPdf;
+const strip=s=>JSON.stringify({items:s.items,months:s.months,daily:s.daily});
+const okShape=d=>d&&d.items&&Array.isArray(d.items.inc)&&Array.isArray(d.items.exp)&&Array.isArray(d.months)&&d.months.length>=1&&d.months.length<=MAX&&Array.isArray(d.daily);
+let savedStr=strip(S),syncRef=null,conflict=false,busy=false,prevStr=savedStr;
+function setSync(t){const e=$("sync");if(e)e.textContent=t}
+async function doSave(auto){
+S.savedAt=Date.now();
+try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){if(!auto&&!syncRef){say("保存できませんでした。ブラウザの設定をご確認ください");return}}
+savedStr=strip(S);conflict=false;
+if(!syncRef){if(!auto)say("保存しました");return}
+try{await syncRef.set(JSON.parse(JSON.stringify(S)));say(auto?"自動で保存・同期しました":"保存して同期しました")}
+catch(e){say(e&&(e.code==="quota_exceeded"||e.code==="invalid_argument")?"同期できませんでした（データが大きすぎる可能性があります）。この端末には保存しました":"同期できませんでした。この端末には保存しました")}}
+function onRemote(snap){
+if(!snap.exists)return;
+const d=JSON.parse(JSON.stringify(snap.data()));
+if(!okShape(d)||!(d.savedAt>(S.savedAt||0)))return;
+if(strip(S)!==savedStr){conflict=true;say("ほかの端末に新しいデータがあります。「保存」を押すと、この端末の内容で上書きします");return}
+try{localStorage.setItem(KEY+"-backup",JSON.stringify(S))}catch(_){}
+const keep=cur;S=d;
+cur=keep<S.months.length?keep:(Number.isInteger(S.cur)&&S.cur<S.months.length?S.cur:0);
+savedStr=prevStr=strip(S);
+try{localStorage.setItem(KEY,JSON.stringify(S))}catch(_){}
+render();say("ほかの端末の最新データを読み込みました")}
+async function initSync(){
+try{
+const ok=window.claude&&claude.use,db=ok?await claude.use("db"):null,user=ok?await claude.use("user"):null;
+const id=db&&user&&user.id?await user.id():null;
+if(!id){setSync("同期：オフ（この端末のブラウザにだけ保存されます）");return}
+syncRef=db.doc("data/users/"+id+"/state");
+setSync("同期：オン（同じclaude.aiアカウントで開いた、ほかの端末と自動で共有されます）");
+const first=await syncRef.get();
+if(!first.exists&&strip(S)!==strip(fresh()))await doSave(true);
+syncRef.onSnapshot(onRemote,()=>setSync("同期：停止しました（この端末には保存されます）"))
+}catch(e){syncRef=null;setSync("同期：オフ（この端末のブラウザにだけ保存されます）")}}
+setInterval(async()=>{
+if(!syncRef||busy||conflict)return;
+const c=strip(S);
+if(c!==savedStr&&c===prevStr){busy=true;try{await doSave(true)}finally{busy=false}}
+prevStr=c},3000);
 let calv="both";
 let selDay="";
 const pad=n=>String(n).padStart(2,"0");
@@ -413,13 +452,14 @@ it.l=v;t.value=v;say("項目名を変更しました。保存すると反映さ�
 $("sheet").addEventListener("keydown",e=>{
 if(e.key==="Enter"&&e.target.dataset.nm){e.preventDefault();e.target.blur();return}
 if(e.key==="Enter"&&e.target.id&&e.target.id.startsWith("n_")){e.preventDefault();doAdd(e.target.id.slice(2))}});
-$("save").onclick=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));say("保存しました")}catch(e){say("保存できませんでした。ブラウザの設定をご確認ください")}};
+$("save").onclick=()=>doSave(false);
 $("reset").onclick=()=>{if(!confirm(`${cur+1}ヶ月目の入力内容をクリアします。よろしいですか？`))return;const mo0=S.months[cur].month;if(mo0)S.daily=S.daily.filter(x=>x.date.slice(0,7)!==mo0);S.months[cur]={month:"",v:{}};render();say("クリアしました。保存すると反映されます")};
 /* CSV */
 const q=v=>/[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;
 $("exp").onclick=()=>{
 const L=[["区分","項目"].concat(S.months.map((m,i)=>`${i+1}ヶ月目`)),["対象月",""].concat(S.months.map(m=>m.month||""))];
-["inc","exp"].forEach(c=>S.items[c].forEach(it=>L.push([CAT[c],it.l].concat(S.months.map(m=>toNum(m.v[it.id]))))));
+["inc","exp"].forEach(c=>S.items[c].forEach(it=>L.push([CAT[c],it.l].concat(S.months.map((m,i)=>val(i,it.id))))));
+if(S.daily.length){L.push([]);L.push(["日次の記録","日付","区分","項目","金額","メモ"]);[...S.daily].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0).forEach(x=>{const it=S.items[x.c].find(i=>i.id===x.item);L.push(["日次",x.date,CAT[x.c],it?it.l:"",x.amt,x.memo||""])})}
 const t=L.map(r=>r.map(x=>q(String(x))).join(",")).join("\n");
 $("io").value=t;$("io").focus();$("io").select();
 try{navigator.clipboard.writeText(t).then(()=>say("書き出してコピーしました"),()=>say("書き出しました。内容をコピーして保存してください"))}catch(e){say("書き出しました。内容をコピーして保存してください")}};
@@ -447,23 +487,31 @@ if(!t.trim()){say("CSVを貼り付けるか、ファイルを選択してくだ�
 const first=t.split(/\r?\n/)[0],d=(first.includes("\t")&&!first.includes(","))?"\t":",";
 const rows=parse(t,d),map={"収入":"inc","支出":"exp"};
 const hasData=rows.some(r=>map[(r[0]||"").trim()]);
-const hasMonth=rows.some(r=>(r[0]||"").trim()==="対象月");
+const hasMonth=rows.some(r=>["対象月","日次"].includes((r[0]||"").trim()));
 if(!hasData&&!hasMonth){say("取り込める行がありません。1列目が「収入」「支出」の行が必要です");return}
 if(!confirm("CSVの内容を現在の入力に取り込みます。同じ名前の項目の金額は上書きされます。よろしいですか？"))return;
 let cols=0;rows.forEach(r=>{const k=(r[0]||"").trim();if(map[k]||k==="対象月")for(let i=r.length-1;i>=2;i--)if((r[i]||"").trim()!==""){cols=Math.max(cols,i-1);break}});
 cols=Math.min(cols,MAX);while(S.months.length<cols)S.months.push({month:"",v:{}});
-let n=0,added=0;
+let n=0,added=0;const TOT=[],DL=[];
 rows.forEach(r=>{
 const k=(r[0]||"").trim();
 if(k==="対象月"){for(let m=0;m<S.months.length;m++){const v=(r[2+m]||"").trim().replace(/\//g,"-");if(/^\d{4}-\d{1,2}$/.test(v)){const p=v.split("-");S.months[m].month=p[0]+"-"+p[1].padStart(2,"0")}}return}
+if(k==="日次"){const ds=(r[1]||"").trim().replace(/\//g,"-").replace(/^(\d{4})-(\d{1,2})-(\d{1,2})$/,(_,y,mo,dd)=>y+"-"+pad(+mo)+"-"+pad(+dd)),dc=map[(r[2]||"").trim()],lb=(r[3]||"").trim(),am=toNum(r[4]||"");if(/^\d{4}-\d{2}-\d{2}$/.test(ds)&&dc&&lb&&am){DL.push({ds,dc,lb,am,memo:(r[5]||"").trim().slice(0,40)});n++}return}
 const c=map[k];if(!c)return;
 const label=(r[1]||"").trim();if(!label)return;
 const before=S.items[c].length,it=addItem(c,label);
 if(S.items[c].length>before)added++;
-for(let m=0;m<S.months.length;m++){const raw=(r[2+m]||"").trim();if(raw!==""){const v=toNum(raw);S.months[m].v[it.id]=v?String(v):""}}
+for(let m=0;m<S.months.length;m++){const raw=(r[2+m]||"").trim();if(raw!=="")TOT.push([m,it.id,toNum(raw)])}
 n++});
+if(DL.length){
+const fm=new Set(DL.map(x=>x.ds.slice(0,7)));
+rows.forEach(r=>{if((r[0]||"").trim()==="対象月")for(let i=2;i<r.length;i++){const v=(r[i]||"").trim().replace(/\//g,"-");if(/^\d{4}-\d{1,2}$/.test(v)){const p=v.split("-");fm.add(p[0]+"-"+p[1].padStart(2,"0"))}}});
+S.daily=S.daily.filter(x=>!fm.has(x.date.slice(0,7)));
+DL.forEach(x=>{const it=addItem(x.dc,x.lb);S.daily.push({id:newId(),date:x.ds,c:x.dc,item:it.id,amt:x.am,memo:x.memo})})}
+TOT.forEach(([m,id,v])=>{const man=Math.max(0,v-dsum(m,id));S.months[m].v[id]=man?String(man):""});
 render();say(`${n}行を取り込みました（新規項目 ${added}件）。保存すると反映されます`)};
 render();
+initSync();
 </script>
 <script>if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))</script>
 </body>
