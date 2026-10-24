@@ -67,6 +67,8 @@ textarea{width:100%;min-height:140px;padding:8px;font-family:ui-monospace,Menlo,
 .day{min-height:64px;font:inherit;font-size:.78rem;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:flex-end;padding:3px 4px;border-radius:3px;overflow:hidden}
 .day.sel{outline:2px solid var(--accent);background:var(--head)}
 .day span{font-size:.65rem;font-variant-numeric:tabular-nums}
+.day i{font-style:normal}
+.day .c{display:none}
 .dp{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
 .dp ul{list-style:none;padding:0;margin:0 0 10px}
 .dp li{display:flex;justify-content:space-between;align-items:center;gap:6px;border-bottom:1px dotted var(--line);padding:4px 0;font-size:.9rem}
@@ -115,10 +117,10 @@ tr.drag{opacity:.85}
 .ctl{gap:6px}
 .segs{max-width:100%}
 .actions .btn{padding:10px 14px}
-.day{align-items:center;min-height:46px;padding:3px 2px}
-.day span{font-size:0;display:block;width:8px;height:8px;border-radius:50%;margin-top:3px}
-.day span.pos{background:var(--pos)}
-.day span.neg{background:var(--neg)}.balance output{font-size:1.25rem}}
+.day{align-items:center;min-height:58px;padding:3px 1px}
+.day .f{display:none}
+.day .c{display:inline}
+.day span{display:block;max-width:100%;overflow:hidden;white-space:nowrap;font-size:.58rem;line-height:1.3;letter-spacing:-.02em}.balance output{font-size:1.25rem}}
 @media print{.tabs,.actions,.note,.add,.del,details{display:none}body{background:#fff}}
 </style>
 </head>
@@ -333,7 +335,7 @@ const y=+mo.slice(0,4),m=+mo.slice(5),first=new Date(y,m-1,1).getDay(),days=new 
 if(selDay.slice(0,7)!==mo){const t=new Date(),ts=`${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`;selDay=ts.slice(0,7)===mo?ts:mo+"-01"}
 let cells="<div></div>".repeat(first);
 for(let d=1;d<=days;d++){const ds=`${mo}-${pad(d)}`,es=S.daily.filter(x=>x.date===ds),ci=es.filter(x=>x.c==="inc").reduce((a,x)=>a+x.amt,0),ce=es.filter(x=>x.c==="exp").reduce((a,x)=>a+x.amt,0);
-cells+=`<button class="day${ds===selDay?" sel":""}" data-day="${ds}" aria-pressed="${ds===selDay}" aria-label="${m}月${d}日"><b>${d}</b>${ci&&calv!=="exp"?`<span class="pos">＋${yen(ci)}</span>`:""}${ce&&calv!=="inc"?`<span class="neg">−${yen(ce)}</span>`:""}</button>`}
+cells+=`<button class="day${ds===selDay?" sel":""}" data-day="${ds}" aria-pressed="${ds===selDay}" aria-label="${m}月${d}日"><b>${d}</b>${ci&&calv!=="exp"?`<span class="pos"><i class="f">＋${yen(ci)}</i><i class="c">+${compact(ci)}</i></span>`:""}${ce&&calv!=="inc"?`<span class="neg"><i class="f">−${yen(ce)}</i><i class="c">−${compact(ce)}</i></span>`:""}</button>`}
 const L=S.daily.filter(x=>x.date===selDay).map(x=>{const it=S.items[x.c].find(i=>i.id===x.item);return `<li><span>${x.c==="inc"?"収入":"支出"}：${h(it?it.l:"（削除済み）")}　${yen(x.amt)} 円${x.memo?`（${h(x.memo)}）`:""}</span><button class="del" data-rm="${x.id}" aria-label="この記録を削除">×</button></li>`}).join("");
 el.innerHTML=`<h2>日々の記録（カレンダー）</h2><div class="ctl"><div class="segs">${sg(calv==="both","calv","both","収入と支出")}${sg(calv==="inc","calv","inc","収入のみ")}${sg(calv==="exp","calv","exp","支出のみ")}</div></div><p class="hint"><span class="pos">＋収入</span>　<span class="neg">−支出</span>（日ごとの合計）</p><div class="dow">${[..."日月火水木金土"].map(c=>`<span>${c}</span>`).join("")}</div><div class="grid">${cells}</div>
 <div class="dp"><h3>${m}月${+selDay.slice(8)}日の記録</h3>${L?`<ul>${L}</ul>`:`<p class="hint">この日の記録はまだありません。</p>`}
