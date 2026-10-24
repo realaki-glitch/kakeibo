@@ -141,10 +141,10 @@ tr.drag{opacity:.85}
 <p class="hint" id="sync"></p>
 <details>
 <summary>CSVのインポート／エクスポート</summary>
-<p>Excelなどで作ったCSVを読み込めます。1行目は「区分,項目,1ヶ月目,2ヶ月目,3ヶ月目,…」（列を増やすと月が自動で追加されます）、区分には「収入」または「支出」を入れます。「対象月」の行（例：対象月,,2026-08,2026-09,2026-10）も使えます。「CSVを書き出す」で、現在入力されている内容（日々の記録も含む）を書き出せます。書き出したCSVは、そのまま取り込めます。金額は、日々の記録の分を含めた合計です。</p>
+<p>Excelなどで作ったCSVを読み込めます。1行目は「区分,項目,1ヶ月目,2ヶ月目,3ヶ月目,…」（列を増やすと月が自動で追加されます）、区分には「収入」または「支出」を入れます。「対象月」の行（例：対象月,,2026-08,2026-09,2026-10）も使えます。「CSVファイルを書き出す」で、現在入力されている内容（日々の記録も含む）を、CSVファイルとして保存できます。書き出したCSVは、そのまま取り込めます。金額は、日々の記録の分を含めた合計です。</p>
 <div class="row">
 <input type="file" id="file" accept=".csv,.tsv,.txt" aria-label="CSVファイルを選択">
-<button class="btn" id="exp">CSVを書き出す</button>
+<button class="btn" id="exp">CSVファイルを書き出す</button>
 <button class="btn main" id="imp">取り込む</button>
 </div>
 <textarea id="io" spellcheck="false" aria-label="CSVの内容" placeholder="ここにCSVを貼り付けるか、ファイルを選択してください"></textarea>
@@ -461,8 +461,8 @@ const L=[["区分","項目"].concat(S.months.map((m,i)=>`${i+1}ヶ月目`)),["�
 ["inc","exp"].forEach(c=>S.items[c].forEach(it=>L.push([CAT[c],it.l].concat(S.months.map((m,i)=>val(i,it.id))))));
 if(S.daily.length){L.push([]);L.push(["日次の記録","日付","区分","項目","金額","メモ"]);[...S.daily].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0).forEach(x=>{const it=S.items[x.c].find(i=>i.id===x.item);L.push(["日次",x.date,CAT[x.c],it?it.l:"",x.amt,x.memo||""])})}
 const t=L.map(r=>r.map(x=>q(String(x))).join(",")).join("\n");
-$("io").value=t;$("io").focus();$("io").select();
-try{navigator.clipboard.writeText(t).then(()=>say("書き出してコピーしました"),()=>say("書き出しました。内容をコピーして保存してください"))}catch(e){say("書き出しました。内容をコピーして保存してください")}};
+$("io").value=t;
+saveFile("家計の状況.csv",new Blob(["\uFEFF"+t],{type:"text/csv;charset=utf-8"}))};
 function parse(t,d){
 const r=[];let row=[],f="",inq=false;
 for(let i=0;i<t.length;i++){const c=t[i];
