@@ -148,6 +148,7 @@ tr.drag{opacity:.85}
 <button class="btn main" id="imp">取り込む</button>
 </div>
 <textarea id="io" spellcheck="false" aria-label="CSVの内容" placeholder="ここにCSVを貼り付けるか、ファイルを選択してください"></textarea>
+<p class="hint" id="iomsg" role="status"></p>
 <p>取り込むと、同じ名前の項目の金額は上書きされ、見つからない項目は新しい項目として追加されます。文字コードはUTF-8とShift_JISに対応しています。「日次」の行があると、その月の日々の記録は、CSVの内容に置き換わります。</p>
 </details>
 <p class="note">入力内容はこのブラウザ内にのみ保存されます。実際の申立書の書式は裁判所により異なるため、提出前に管轄の裁判所の書式をご確認ください。</p>
@@ -193,7 +194,7 @@ document.querySelectorAll("input[data-id]").forEach(el=>{if(el!==document.active
 let a=0,x=0;for(let m=0;m<S.months.length;m++){a+=sum("inc",m);x+=sum("exp",m)}
 const t=a-x;
 $("total").innerHTML=`<span>${S.months.length}ヶ月 収入計：${yen(a)} 円</span><span>支出計：${yen(x)} 円</span><span>収支計：<b class="${t<0?"neg":"pos"}">${fmt(t)}</b></span>`}
-function say(t){$("msg").textContent=t;clearTimeout(say.t);say.t=setTimeout(()=>$("msg").textContent="",3500)}
+function say(t){$("msg").textContent=t;$("iomsg").textContent=t;clearTimeout(say.t);say.t=setTimeout(()=>{$("msg").textContent="";$("iomsg").textContent=""},6000)}
 const newId=()=>"c"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 function addItem(c,label){
 label=label.trim();if(!label)return null;
@@ -363,6 +364,16 @@ if(!syncRef||busy||conflict)return;
 const c=strip(S);
 if(c!==savedStr&&c===prevStr){busy=true;try{await doSave(true)}finally{busy=false}}
 prevStr=c},3000);
+function askOK(msg){return new Promise(res=>{
+const d=document.createElement("dialog");
+d.innerHTML=`<p style="margin:0 0 14px;line-height:1.6"></p><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" data-v="0">キャンセル</button><button class="btn main" data-v="1">OK</button></div>`;
+d.querySelector("p").textContent=msg;
+d.style.cssText="max-width:min(92vw,420px);border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);padding:18px";
+const fin=v=>{try{d.close()}catch(_){}d.remove();res(v)};
+d.addEventListener("click",e=>{const b=e.target.closest("[data-v]");if(b)fin(b.dataset.v==="1")});
+d.addEventListener("cancel",e=>{e.preventDefault();fin(false)});
+document.body.appendChild(d);
+if(d.showModal)d.showModal();else d.setAttribute("open","")})}
 let calv="both";
 let selDay="";
 const pad=n=>String(n).padStart(2,"0");
@@ -425,8 +436,8 @@ if(S.items[c].some(it=>it.l===label)){say("同じ名前の項目がすでにあ�
 const it=addItem(c,label);render();
 const f=$((c==="inc"?"i_":"e_")+it.id);if(f)f.focus();
 say(`「${label}」を追加しました。保存すると反映されます`)}
-$("sheet").addEventListener("click",e=>{
-if(e.target.id==="delm"){if(!confirm(`${cur+1}ヶ月目を削除します。この月の入力と日々の記録も消えます。よろしいですか？`))return;const mo=S.months[cur].month;S.months.splice(cur,1);if(mo&&!S.months.some(m=>m.month===mo))S.daily=S.daily.filter(x=>x.date.slice(0,7)!==mo);cur=Math.max(0,Math.min(cur,S.months.length-1));render();say("削除しました。保存すると反映されます");return}
+$("sheet").addEventListener("click",async e=>{
+if(e.target.id==="delm"){if(!await askOK(`${cur+1}ヶ月目を削除します。この月の入力と日々の記録も消えます。よろしいですか？`))return;const mo=S.months[cur].month;S.months.splice(cur,1);if(mo&&!S.months.some(m=>m.month===mo))S.daily=S.daily.filter(x=>x.date.slice(0,7)!==mo);cur=Math.max(0,Math.min(cur,S.months.length-1));render();say("削除しました。保存すると反映されます");return}
 const mv=e.target.closest("[data-mv]");
 if(mv){const c=mv.dataset.c,id=mv.dataset.id,L=S.items[c],i=L.findIndex(x=>x.id===id),j=i+(+mv.dataset.mv);
 if(i<0||j<0||j>=L.length)return;
@@ -439,7 +450,7 @@ const d=e.target.closest(".del");
 if(d){
 const c=d.dataset.c,id=d.dataset.id,it=S.items[c].find(x=>x.id===id);
 const used=S.months.some(m=>toNum(m.v[id])>0);
-if(!confirm(`「${it.l}」を削除します。${used?"3ヶ月分の入力済みの金額も消えます。":""}よろしいですか？`))return;
+if(!await askOK(`「${it.l}」を削除します。${used?"3ヶ月分の入力済みの金額も消えます。":""}よろしいですか？`))return;
 S.items[c]=S.items[c].filter(x=>x.id!==id);S.months.forEach(m=>delete m.v[id]);S.daily=S.daily.filter(x=>x.item!==id);render();say("削除しました。保存すると反映されます")}});
 $("sheet").addEventListener("change",e=>{
 const t=e.target;if(t.dataset.id){const v=val(cur,t.dataset.id);t.value=v?String(v):"";return}
@@ -453,7 +464,7 @@ $("sheet").addEventListener("keydown",e=>{
 if(e.key==="Enter"&&e.target.dataset.nm){e.preventDefault();e.target.blur();return}
 if(e.key==="Enter"&&e.target.id&&e.target.id.startsWith("n_")){e.preventDefault();doAdd(e.target.id.slice(2))}});
 $("save").onclick=()=>doSave(false);
-$("reset").onclick=()=>{if(!confirm(`${cur+1}ヶ月目の入力内容をクリアします。よろしいですか？`))return;const mo0=S.months[cur].month;if(mo0)S.daily=S.daily.filter(x=>x.date.slice(0,7)!==mo0);S.months[cur]={month:"",v:{}};render();say("クリアしました。保存すると反映されます")};
+$("reset").onclick=async()=>{if(!await askOK(`${cur+1}ヶ月目の入力内容をクリアします。よろしいですか？`))return;const mo0=S.months[cur].month;if(mo0)S.daily=S.daily.filter(x=>x.date.slice(0,7)!==mo0);S.months[cur]={month:"",v:{}};render();say("クリアしました。保存すると反映されます")};
 /* CSV */
 const q=v=>/[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;
 $("exp").onclick=()=>{
@@ -478,10 +489,10 @@ const fl=e.target.files[0];if(!fl)return;
 try{
 const buf=await fl.arrayBuffer();let t;
 try{t=new TextDecoder("utf-8",{fatal:true}).decode(buf)}catch(_){t=new TextDecoder("shift_jis").decode(buf)}
-$("io").value=t.replace(/^\uFEFF/,"");say("ファイルを読み込みました。「取り込む」を押してください")
+$("io").value=t.replace(/^\uFEFF/,"");say("ファイルを読み込みました");$("imp").onclick()
 }catch(_){say("ファイルを読み込めませんでした")}
 e.target.value=""});
-$("imp").onclick=()=>{
+$("imp").onclick=async()=>{
 const t=$("io").value.replace(/^\uFEFF/,"");
 if(!t.trim()){say("CSVを貼り付けるか、ファイルを選択してください");return}
 const first=t.split(/\r?\n/)[0],d=(first.includes("\t")&&!first.includes(","))?"\t":",";
@@ -489,7 +500,11 @@ const rows=parse(t,d),map={"収入":"inc","支出":"exp"};
 const hasData=rows.some(r=>map[(r[0]||"").trim()]);
 const hasMonth=rows.some(r=>["対象月","日次"].includes((r[0]||"").trim()));
 if(!hasData&&!hasMonth){say("取り込める行がありません。1列目が「収入」「支出」の行が必要です");return}
-if(!confirm("CSVの内容を現在の入力に取り込みます。同じ名前の項目の金額は上書きされます。よろしいですか？"))return;
+if(!await askOK("CSVの内容を現在の入力に取り込みます。同じ名前の項目の金額は上書きされます。よろしいですか？"))return;
+const hdr=rows.find(r=>(r[0]||"").trim()==="区分");
+const ti=hdr?hdr.findIndex((x,i)=>i>=2&&(x||"").trim()==="合計"):-1;
+if(ti>=2)rows.forEach(r=>{const k=(r[0]||"").trim();if(map[k]||k==="対象月")r.length=Math.min(r.length,ti)});
+if(hdr&&!rows.some(r=>(r[0]||"").trim()==="対象月")&&hdr.slice(2,ti>=2?ti:undefined).some(x=>/^\d{4}-\d{2}$/.test((x||"").trim())))rows.push(["対象月",""].concat(hdr.slice(2,ti>=2?ti:undefined)));
 let cols=0;rows.forEach(r=>{const k=(r[0]||"").trim();if(map[k]||k==="対象月")for(let i=r.length-1;i>=2;i--)if((r[i]||"").trim()!==""){cols=Math.max(cols,i-1);break}});
 cols=Math.min(cols,MAX);while(S.months.length<cols)S.months.push({month:"",v:{}});
 let n=0,added=0;const TOT=[],DL=[];
@@ -510,6 +525,7 @@ S.daily=S.daily.filter(x=>!fm.has(x.date.slice(0,7)));
 DL.forEach(x=>{const it=addItem(x.dc,x.lb);S.daily.push({id:newId(),date:x.ds,c:x.dc,item:it.id,amt:x.am,memo:x.memo})})}
 TOT.forEach(([m,id,v])=>{const man=Math.max(0,v-dsum(m,id));S.months[m].v[id]=man?String(man):""});
 render();say(`${n}行を取り込みました（新規項目 ${added}件）。保存すると反映されます`)};
+{const f0=$("imp").onclick;$("imp").onclick=async()=>{try{await f0()}catch(err){say("取り込めませんでした："+(err&&err.message?err.message:"形式をご確認ください"))}}}
 render();
 initSync();
 </script>
